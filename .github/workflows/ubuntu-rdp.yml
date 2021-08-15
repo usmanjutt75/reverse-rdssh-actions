@@ -1,0 +1,41 @@
+# https://github.com/KSPActions/reverse-rdssh-actions
+# debugging only - @keepsobp
+name: ubuntu-rdp
+
+on: 
+  workflow_dispatch:
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ubuntu-rdp:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+    - name: Change runner password
+      run: |
+         sudo apt-get update 
+         echo 'runner:${{ secrets.PASSWORD }}' | sudo chpasswd
+         echo 'runneradmin:${{ secrets.PASSWORD }}' | sudo chpasswd
+
+    - name: Install desktop environment 
+      run: |
+        sudo apt-get install xfce4 xfce4-terminal -y 
+
+    - name: Install xrdp
+      run: |
+        sudo apt-get install xrdp
+        sudo adduser xrdp ssl-cert
+        echo xfce4-session > ~/.xsession
+        sudo service xrdp restart     
+
+    - uses: kspactions/workflows/cloudflared@main
+      with:
+        args: tunnel --url rdp://localhost:3389 --logfile "/tmp/cloudflared.log" &
+ 
+    - name: show result link
+      run: sleep 10 && grep -m 1 -oE "https://(.+)trycloudflare.com" /tmp/cloudflared.log && sudo rm -rf /tmp/cloudflared.log
+
+    - name: sleep
+      run: sleep 21600

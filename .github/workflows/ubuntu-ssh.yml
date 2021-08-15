@@ -1,0 +1,48 @@
+# https://github.com/KSPActions/reverse-rdssh-actions
+# debugging only - @keepsobp
+
+name: ubuntu-ssh
+on: 
+  workflow_dispatch:
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ubuntu-ssh:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+    - name: Change runner password
+      run: |
+         sudo apt-get update 
+         echo 'runner:${{ secrets.PASSWORD }}' | sudo chpasswd
+         echo 'runneradmin:${{ secrets.PASSWORD }}' | sudo chpasswd
+
+    - run: |
+           mkdir -p ~/.ssh
+           chmod 700 ~/.ssh
+           cat << EOF > ~/.ssh/config
+           Host *
+               ServerAliveInterval 60
+               StrictHostKeyChecking no
+           Host github.com
+               User git
+               Port 22
+               Hostname github.com
+               TCPKeepAlive yes
+               IdentitiesOnly yes
+           EOF
+           sudo systemctl enable ssh.service
+           sudo systemctl restart ssh.service
+           sudo systemctl status ssh.service
+
+    - uses: kspactions/workflows/cloudflared@main
+      with:
+        args: tunnel --url ssh://localhost:22 --logfile "/tmp/cloudflared.log" &
+ 
+    - name: show result link
+      run: sleep 10 && grep -m 1 -oE "https://(.+)trycloudflare.com" /tmp/cloudflared.log && sudo rm -rf /tmp/cloudflared.log
+
+    - name: sleep
+      run: sleep 21600
